@@ -1,0 +1,23 @@
+# This file is a template, and might need editing before it works on your project.
+# Full project: https://gitlab.com/pages/plain-html
+# gitlab-build-images: https://gitlab.com/gitlab-org/gitlab-build-images
+image: dev.gitlab.org:5005/gitlab/gitlab-build-images:ruby-2.6.3-git-2.22-chrome-74.0-node-12.x-yarn-1.16-docker-19.03.1
+stages:
+  - deploy
+before_script:
+  - cd site
+  - yarn install
+# cache files and directories between jobs
+cache:
+  key: ${CI_COMMIT_REF_NAME} # CI_COMMIT_REF_NAME for ^9.0, CI_BUILD_REF_NAME for 8
+  paths:
+    - node_modules/
+
+pages:
+  stage: deploy
+  script:
+    - node bin/build-site.js
+  artifacts:
+    paths:
+      - public
+
