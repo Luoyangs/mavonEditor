@@ -37,7 +37,8 @@ var config = {
         historyApiFallback: true,
         disableHostCheck: true,
         host: 'localhost',
-        port: '9090'
+        port: '9090',
+        open: false,
         // hot: true,
         // noInfo: true
     },

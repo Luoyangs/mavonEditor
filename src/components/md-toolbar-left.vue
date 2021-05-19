@@ -1,6 +1,26 @@
 <template>
     <div class="v-left-item">
         <slot name="left-toolbar-before" />
+        <button :disabled="!editable"
+            type="button"
+            @click="$clicks('import')"
+            class="op-icon fa fa-mavon-bars dropdown dropdown-wrapper"
+            :class="{'selected': s_opt_dropdown_open}"
+            aria-hidden="true"
+            title="导入"
+            @mouseleave="$mouseleave_opt_dropdown" 
+            @mouseenter="$mouseenter_opt_dropdown">
+            <transition name="fade">
+                <div class="op-header popup-dropdown opt"
+                    :class="{'transition': transition}" 
+                    v-show="s_opt_dropdown_open" 
+                    @mouseenter="$mouseenter_opt_dropdown" 
+                    @mouseleave="$mouseleave_opt_dropdown">
+                    <div title="#"  class="dropdown-item" @click.stop="$click_opt('import')"><span>导入.md</span></div>
+                    <div title="## " class="dropdown-item" @click.stop="$click_opt('export')"><span>导出.md</span></div>
+                </div>
+            </transition>
+        </button>
         <button :disabled="!editable" type="button" v-if="toolbars.bold" @click="$clicks('bold')"
                 class="op-icon fa fa-mavon-bold" aria-hidden="true"
                 :title="`${d_words.tl_bold} (ctrl+b)`"></button>
@@ -104,12 +124,7 @@
         <button type="button" v-if="toolbars.redo" @click="$clicks('redo')" class="op-icon fa fa-mavon-repeat"
                 aria-hidden="true"
                 :title="`${d_words.tl_redo} (ctrl+y)`"></button>
-        <button type="button" v-if="toolbars.trash" @click="$clicks('trash')" class="op-icon fa fa-mavon-trash-o"
-                aria-hidden="true"
-                :title="`${d_words.tl_trash} (ctrl+breakspace)`"></button>
-        <button type="button" v-if="toolbars.save" @click="$clicks('save')" class="op-icon fa fa-mavon-floppy-o"
-                aria-hidden="true"
-                :title="`${d_words.tl_save} (ctrl+s)`"></button>
+       
         <slot name="left-toolbar-after" />
 
         <!-- 添加image链接 -->
@@ -162,8 +177,10 @@
                 // [index, file]
                 img_file: [[0, null]],
                 img_timer: null,
+                opt_timer: null,
                 header_timer: null,
                 s_img_dropdown_open: false,
+                s_opt_dropdown_open: false,
                 s_header_dropdown_open: false,
                 s_img_link_open: false,
                 trigger: null,
@@ -284,11 +301,23 @@
                     vm.s_img_dropdown_open = false
                 },200)
             },
+            $mouseenter_opt_dropdown() {
+                if (this.editable) {
+                    clearTimeout(this.opt_timer)
+                    this.s_opt_dropdown_open = true
+                }
+            },
             $mouseenter_header_dropdown() {
                 if (this.editable) {
                     clearTimeout(this.header_timer)
                     this.s_header_dropdown_open = true
                 }
+            },
+            $mouseleave_opt_dropdown() {
+                let vm = this
+                this.opt_timer = setTimeout(function() {
+                    vm.s_opt_dropdown_open = false
+                },200)
             },
             $mouseleave_header_dropdown() {
                 let vm = this
@@ -301,6 +330,11 @@
                 if (this.editable) {
                     this.$emit('toolbar_left_click', _type);
                 }
+            },
+            $click_opt(_type) {
+                // 让父节点来绑定事件并
+                this.$emit('toolbar_left_click', _type);
+                this.s_opt_dropdown_open = false
             },
             $click_header(_type) {
                 // 让父节点来绑定事件并
@@ -335,6 +369,7 @@
             border 1px solid #ebeef5
             border-radius 4px
             box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1)
+            
             .dropdown-item:first-child
                 border-top-left-radius 3px
                 border-top-right-radius 3px
@@ -351,6 +386,8 @@
             &.transition
               &, .dropdown-item
                 transition all 0.2s linear 0s
+            &.opt
+                left: 0px
         .dropdown-item
             height 40px
             line-height @height

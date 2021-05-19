@@ -10,10 +10,18 @@
  */
 
 import Vue from 'vue';
+const Row = require('../components/shopee-row.vue');
+const Col = require('../components/shopee-col.vue');
 var editor = require('./app.vue');
 var sMd = require('../index.js');
+function register(Vue) {
+    //注册
+    Vue.component(Row.name, Row);
+    Vue.component(Col.name, Col);
+}
+Vue.use(register);
 
-Vue.use(sMd)
+Vue.use(sMd);
 var app = new Vue({
     el: '#main',
     render: h => h(editor)

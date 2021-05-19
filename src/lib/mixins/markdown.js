@@ -2,6 +2,8 @@ import hljsLangs from '../core/hljs/lang.hljs.js'
 import {
     loadScript
 } from '../core/extra-function.js'
+// const { compileTemplate } = require('@vue/component-compiler-utils');
+// const { genInlineComponentText } = require('./util.js');
 var markdown_config = {
     html: true,        // Enable HTML tags in source
     xhtmlOut: true,        // Use '/' to close single tags (<br />).
@@ -35,25 +37,6 @@ var taskLists = require('markdown-it-task-lists')
 var container = require('markdown-it-container')
 //
 var toc = require('markdown-it-toc')
-// add target="_blank" to all link
-var defaultRender = markdown.renderer.rules.link_open || function(tokens, idx, options, env, self) {
-    return self.renderToken(tokens, idx, options);
-};
-markdown.renderer.rules.link_open = function (tokens, idx, options, env, self) {
-    var hIndex = tokens[idx].attrIndex('href');
-    if (tokens[idx].attrs[hIndex][1].startsWith('#')) return defaultRender(tokens, idx, options, env, self);
-    // If you are sure other plugins can't add `target` - drop check below
-    var aIndex = tokens[idx].attrIndex('target');
-
-    if (aIndex < 0) {
-        tokens[idx].attrPush(['target', '_blank']); // add new attribute
-    } else {
-        tokens[idx].attrs[aIndex][1] = '_blank';    // replace value of existing attr
-    }
-
-    // pass token to default renderer.
-    return defaultRender(tokens, idx, options, env, self);
-};
 var mihe = require('markdown-it-highlightjs-external');
 // math katex
 var katex = require('markdown-it-katex-external');
@@ -87,7 +70,19 @@ markdown.use(mihe, hljs_opts)
     .use(miip)
     .use(katex)
     .use(taskLists)
-    .use(toc)
+    // .use(toc)
+    .use(require('./md-anchor'), {
+        slugify: require('./util/slugify'),
+        permalink: true,
+        permalinkBefore: true,
+        permalinkSymbol: '#'
+      })
+    .use(require('./md-container/br'))
+    .use(require('./md-toc'))
+    .use(require('./md-link'))
+    .use(require('./md-imagesize'))
+    .use(require('./md-container/row'))
+    .use(require('./md-container/col'))
 
 export default {
     data() {
@@ -96,7 +91,6 @@ export default {
         }
     },
     mounted() {
-        var $vm = this;
         hljs_opts.highlighted = this.ishljs;
     },
     methods: {
@@ -104,7 +98,10 @@ export default {
             var $vm = this;
             missLangs = {};
             needLangs = [];
+            // var res = wrapper(markdown.render(src));
             var res = markdown.render(src);
+            res = `<div>${res}</div>`;
+            
             if (this.ishljs) {
                 if (needLangs.length > 0) {
                     $vm.$_render(src, func, res);

@@ -12,7 +12,8 @@
             <v-md-toolbar-right ref="toolbar_right" :d_words="d_words" @toolbar_right_click="toolbar_right_click"
                                 :toolbars="toolbars"
                                 :s_subfield="s_subfield"
-                                :s_preview_switch="s_preview_switch" :s_fullScreen="s_fullScreen"
+                                :s_preview_switch="s_preview_switch" 
+                                :s_fullScreen="s_fullScreen"
                                 :s_html_code="s_html_code"
                                 :s_navigation="s_navigation"
                                 :class="{'transition': transition}">
@@ -21,45 +22,35 @@
             </v-md-toolbar-right>
         </div>
         <!--编辑展示区域-->
-        <div class="v-note-panel">
+        <div class="v-note-panel" ref="vNoteMain">
             <!--编辑区-->
             <div ref="vNoteEdit" @scroll="$v_edit_scroll" class="v-note-edit divarea-wrapper"
                  :class="{'scroll-style': s_scrollStyle, 'scroll-style-border-radius': s_scrollStyle && !s_preview_switch && !s_html_code, 'single-edit': !s_preview_switch && !s_html_code, 'single-show': (!s_subfield && s_preview_switch) || (!s_subfield && s_html_code), 'transition': transition}"
                  @click="textAreaFocus">
                 <div class="content-input-wrapper" :style="{'background-color': editorBackground}">
                     <!-- 双栏 -->
-                    <v-autoTextarea ref="vNoteTextarea" :placeholder="placeholder ? placeholder : d_words.start_editor"
+                    <v-autoTextarea ref="vNoteTextarea" :placeholder="placeholder ? placeholder : ''"
                                     class="content-input" :fontSize="fontSize"
                                     lineHeight="1.5" v-model="d_value" fullHeight
                                     :style="{'background-color': editorBackground}"></v-autoTextarea>
                 </div>
             </div>
+            <div class="resize" ref="vNoteBar"></div>
             <!--展示区-->
-            <div :class="{'single-show': (!s_subfield && s_preview_switch) || (!s_subfield && s_html_code)}"
-                 v-show="s_preview_switch || s_html_code" class="v-note-show">
-                <div ref="vShowContent" v-html="d_render" v-show="!s_html_code"
-                     :class="{'scroll-style': s_scrollStyle, 'scroll-style-border-radius': s_scrollStyle}" class="v-show-content"
-                     :style="{'background-color': previewBackground}">
-                </div>
-                <div v-show="s_html_code" :class="{'scroll-style': s_scrollStyle, 'scroll-style-border-radius': s_scrollStyle}" class="v-show-content-html"
-                  :style="{'background-color': previewBackground}">
-                    {{d_render}}
+            <div ref="vNotePreview" 
+                :class="{'single-show': (!s_subfield && s_preview_switch) || (!s_subfield && s_html_code)}"
+                v-show="s_preview_switch || s_html_code" 
+                class="v-note-show">
+                <div
+                    ref="vShowContent"
+                    v-show="!s_html_code"
+                    :class="{'scroll-style': s_scrollStyle, 'scroll-style-border-radius': s_scrollStyle}" 
+                    class="v-show-content"
+                    :style="{'background-color': previewBackground}"
+                    @scroll="handlePreviewScroll">
+                    <v-runtime-template :template="d_render"></v-runtime-template>
                 </div>
             </div>
-
-            <!--标题导航-->
-            <transition name="slideTop">
-                <div v-show="s_navigation" class="v-note-navigation-wrapper" :class="{'transition': transition}">
-                    <div class="v-note-navigation-title">
-                        {{d_words.navigation_title}}<i @click="toolbar_right_click('navigation')"
-                                                       class="fa fa-mavon-times v-note-navigation-close"
-                                                       aria-hidden="true"></i>
-                    </div>
-                    <div ref="navigationContent" class="v-note-navigation-content" :class="{'scroll-style': s_scrollStyle}">
-                    </div>
-                </div>
-            </transition>
-
         </div>
         <!--帮助文档-->
         <transition name="fade">
@@ -68,7 +59,9 @@
                     <div class="v-note-help-content markdown-body" :class="{'shadow': boxShadow}">
                         <i @click.stop.prevent="toolbar_right_click('help')" class="fa fa-mavon-times"
                            aria-hidden="true"></i>
-                        <div class="scroll-style v-note-help-show" v-html="d_help"></div>
+                        <div class="scroll-style v-note-help-show">
+                            <v-runtime-template :template="d_help"></v-runtime-template>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -81,18 +74,17 @@
         </transition>
         <!--阅读模式-->
         <div :class="{'show': s_readmodel}" class="v-note-read-model scroll-style" ref="vReadModel">
-            <div ref="vNoteReadContent" class="v-note-read-content" v-html="d_render">
-            </div>
+            <v-runtime-template :template="d_render"></v-runtime-template>
         </div>
     </div>
 </template>
 
 <script>
-// import tomarkdown from './lib/core/to-markdown.js'
+import Vue from 'vue';
 import {autoTextarea} from 'auto-textarea'
+import FileSaver from 'file-saver';
 import {keydownListen} from './lib/core/keydown-listen.js'
 import hljsCss from './lib/core/hljs/lang.hljs.css.js'
-import hljsLangs from './lib/core/hljs/lang.hljs.js'
 import {
     fullscreenchange,
    /* windowResize, */
@@ -108,20 +100,21 @@ import {
     insertCodeBlock,
     loadLink,
     loadScript,
-    ImagePreviewListener
 } from './lib/core/extra-function.js'
-import {p_ObjectCopy_DEEP, stopEvent} from './lib/util.js'
+import {stopEvent} from './lib/util.js'
 import {toolbar_left_click, toolbar_left_addlink} from './lib/toolbar_left_click.js'
 import {toolbar_right_click} from './lib/toolbar_right_click.js'
 import {CONFIG} from './lib/config.js'
-import hljs from './lib/core/highlight.js'
 import markdown from './lib/mixins/markdown.js'
+import VRuntimeTemplate from "v-runtime-template";
+import { slugify } from 'transliteration';
 
 import md_toolbar_left from './components/md-toolbar-left.vue'
 import md_toolbar_right from './components/md-toolbar-right.vue'
 import "./lib/font/css/fontello.css"
 import './lib/css/md.css'
 const xss = require('xss');
+
 export default {
     mixins: [markdown],
     props: {
@@ -265,11 +258,11 @@ export default {
                 }
                 return default_open_ === 'preview' ? true : false;
             })(), // props true 展示编辑 false展示预览
-            s_fullScreen: false,// 全屏编辑标志
+            s_fullScreen: true,// 全屏编辑标志
             s_help: false,// markdown帮助
             s_html_code: false,// 分栏情况下查看html
             d_help: null,
-            d_words: null,
+            d_words: {},
             edit_scroll_height: -1,
             s_readmodel: false,
             s_table_enter: false, // 回车事件是否在表格中执行
@@ -283,9 +276,9 @@ export default {
             d_image_file: [],
             d_preview_imgsrc: null, // 图片预览地址
             s_external_link: {
-                markdown_css: function() {
-                    return 'https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.9.0/github-markdown.min.css';
-                },
+                // markdown_css: function() {
+                //     // return 'https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/2.9.0/github-markdown.min.css';
+                // },
                 hljs_js: function() {
                     return 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js';
                 },
@@ -307,7 +300,10 @@ export default {
             },
             p_external_link: {},
             textarea_selectionEnd: 0,
-            textarea_selectionEnds: [0]
+            textarea_selectionEnds: [0],
+            listHeight: [],
+            scrollPreview: () => {},
+            oldFileName: '',
         };
     },
     created() {
@@ -332,7 +328,7 @@ export default {
        /* windowResize(this); */
         keydownListen(this);
         // 图片预览事件监听
-        ImagePreviewListener(this);
+        // ImagePreviewListener(this);
         // 设置默认焦点
         if (this.autofocus) {
             this.getTextareaDom().focus();
@@ -342,7 +338,7 @@ export default {
         this.d_value = this.value || "";
         // 将help添加到末尾
         document.body.appendChild(this.$refs.help);
-        this.loadExternalLink('markdown_css', 'css');
+        // this.loadExternalLink('markdown_css', 'css');
         this.loadExternalLink('katex_css', 'css')
         this.loadExternalLink('katex_js', 'js', function() {
             $vm.iRender(true);
@@ -355,6 +351,10 @@ export default {
             // 没有外部文件要来接管markdown样式，可以更改markdown样式。
             $vm.codeStyleChange($vm.codeStyle, true)
         }
+
+        this.$nextTick(() => {
+            this.dragControllerDiv();
+        })
     },
     beforeDestroy() {
         document.body.removeChild(this.$refs.help);
@@ -506,6 +506,28 @@ export default {
             }
         },
         toolbar_left_click(_type) {
+            if (_type === 'import') {
+                // 导入md
+                const vm = this;
+                const fileEle = document.createElement('input');
+                fileEle.setAttribute('type', 'file');
+                fileEle.click();
+                fileEle.onchange = (e) => {
+                    const file = e.target.files[0];
+                    vm.oldFileName = file.name;
+                    const fileReader = new FileReader();
+                    fileReader.onload = function(evt) {
+                        console.log('evt.target.result', evt.target.result)
+                        vm.d_value = evt.target.result;
+                    }
+                    fileReader.readAsText(file);
+                }
+                document.body.appendChild(fileEle);
+            } else if (_type === 'export') {
+                // 导出md
+                const blob = new Blob([this.d_value], { type: "text/plain;charset=utf-8" });
+                FileSaver.saveAs(blob, this.oldFileName || `${Math.random() * 1000}.md`);
+            }
             toolbar_left_click(_type, this);
         },
         toolbar_left_addlink(_type, text, link) {
@@ -515,7 +537,18 @@ export default {
             toolbar_right_click(_type, this);
         },
         getNavigation($vm, full) {
-            return getNavigation($vm, full);
+            // return getNavigation($vm, full);
+            const toc = document.querySelector('nav.table-of-contents');
+            if (toc) {
+                console.log('ss', toc.classList, toc.classList.contains('hidden'));
+                if (toc.classList.contains('hidden')) {
+                    toc.classList.remove('hidden')
+                } else {
+                    console.log('sss');
+                    toc.classList.add('hidden')
+                    toc.style.display = 'none'
+                }
+            }
         },
         // @event
         // 修改数据触发 （val ， val_render）
@@ -552,7 +585,8 @@ export default {
         },
         // 导航栏切换
         navigationtoggle(status, val) {
-            this.$emit('navigationToggle', status, val)
+            // this.$emit('navigationToggle', status, val)
+            
         },
         $toolbar_right_read_change_status() {
             this.s_readmodel = !this.s_readmodel
@@ -566,7 +600,57 @@ export default {
         // ---------------------------------------
         // 滚动条联动
         $v_edit_scroll($event) {
+            console.log('')
             scrollLink($event, this);
+        },
+        handlePreviewScroll($event) {
+            // hash变化
+            const routeHash = slugify(decodeURIComponent(window.location.hash.slice(1)));
+            const tocs = document.querySelectorAll('.table-of-contents a');
+            tocs.forEach(toc => {
+                if (toc.classList.contains(routeHash)) {
+                    toc.classList.add('active');
+                } else {
+                    toc.classList.remove('active');
+                }
+            });
+
+            // 滚动效果
+            const element = $event.srcElement ? $event.srcElement : $event.target
+            const scrollY = element.scrollTop + 80;
+            this.fixed = scrollY > 230 ? true : false
+            for (let i = 0; i < this.listHeight.length-1; i++) {
+                const h1 = this.listHeight[i]
+                const h2 = this.listHeight[i+1]
+                if (scrollY >= h1.top && scrollY <= h2.top) {
+                    const activeAnchor = document.querySelector(`.table-of-contents a.${slugify(h1.slug)}`) // 获取文章滚动到目录的目标元素
+                    tocs.forEach(toc => {
+                        // const top = i > 7 ? -28 * (i-7) : 0  
+                        // this.target[0].style.marginTop = `${top}px`
+                        if (activeAnchor !== toc) {
+                            toc.classList.remove('active');
+                        } else {
+                            activeAnchor.classList.add('active');
+                        }
+                    });
+                } 
+            }
+        },
+        // 获取每个文章标题的距顶部的高度
+        getTitleHeight() {
+            const anchors = [].slice.call(document.querySelectorAll('.v-show-content .header-anchor'))
+                .filter(item => item && ['H1', 'H2'].includes(item.parentNode.tagName));
+            anchors.forEach((item, index) => {
+                this.listHeight.push({
+                    slug: item.getAttribute('href'),
+                    top: item.offsetTop
+                });
+            })
+            this.listHeight.push({
+                slug: '',
+                top: 2 * this.listHeight[this.listHeight.length - 1].top
+            });
+            // 滚动的距离无法取到最后一个，因此在数组最后加上上一个两倍达到效果
         },
         // 获取textarea dom节点
         getTextareaDom() {
@@ -671,12 +755,50 @@ export default {
         $emptyHistory() {
             this.d_history = [this.d_value] // 编辑记录
             this.d_history_index = 0 // 编辑记录索引
-        }
+        },
+        dragControllerDiv() {
+            const resize = this.$refs.vNoteBar;
+            const left = this.$refs.vNoteEdit;
+            const mid = this.$refs.vNotePreview;
+            const box = this.$refs.vNoteMain;
+            // 鼠标按下事件
+            resize.onmousedown = function (e) {
+                //颜色改变提醒
+                const startX = e.clientX;
+                resize.left = resize.offsetLeft;
+                // 鼠标拖动事件
+                document.onmousemove = function (e) {
+                    const endX = e.clientX;
+                    let moveLen = resize.left + (endX - startX); // （endx-startx）=移动的距离。resize.left+移动的距离=左边区域最后的宽度
+                    let maxT = box.clientWidth - resize.offsetWidth; // 容器宽度 - 左边区域的宽度 = 右边区域的宽度
+                    if (moveLen < 520) moveLen = 520; // 左边区域的最小宽度为520px
+                    if (moveLen > maxT - 800) moveLen = maxT - 800; //右边区域最小宽度为800px
+
+                    resize.style.left = moveLen; // 设置左侧区域的宽度
+
+                    left.style.width = moveLen + 'px';
+                    mid.style.width = (box.clientWidth - moveLen - 10) + 'px';
+                };
+                // 鼠标松开事件
+                document.onmouseup = function (evt) {
+                    //颜色恢复
+                    document.onmousemove = null;
+                    document.onmouseup = null;
+                    resize.releaseCapture && resize.releaseCapture(); //当你不在需要继续获得鼠标消息就要应该调用ReleaseCapture()释放掉
+                };
+                resize.setCapture && resize.setCapture(); //该函数在属于当前线程的指定窗口里设置鼠标捕获
+                return false;
+            }
+        },
+
     },
     watch: {
         d_value: function (val, oldVal) {
             this.saveSelectionEndsHistory();
             this.iRender();
+            this.$nextTick(async () => {
+                await this.getTitleHeight()
+            })
         },
         value: function (val, oldVal) {
             // Escaping all XSS characters
@@ -722,13 +844,15 @@ export default {
     components: {
         'v-autoTextarea': autoTextarea,
         'v-md-toolbar-left': md_toolbar_left,
-        'v-md-toolbar-right': md_toolbar_right
+        'v-md-toolbar-right': md_toolbar_right,
+        'v-runtime-template': VRuntimeTemplate,
     }
 };
 </script>
 <style lang="stylus" rel="stylesheet/stylus">
     @import "lib/css/scroll.styl"
     @import "lib/css/mavon-editor.styl"
+    @import "lib/css/md.styl"
 </style>
 <style lang="css" scoped>
     .auto-textarea-wrapper {

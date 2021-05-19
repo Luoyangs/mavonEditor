@@ -52,7 +52,10 @@ module.exports = {
                 loader: 'file-loader',
                 options: { name: '[name].[ext]?[hash]' }
             },
-            { test: /\.(woff|ttf|eot|svg)/, loader: 'file-loader?name=font/[name].[ext]&publicPath=../' },
+            { 
+                test: /\.(woff|ttf|eot|svg|otf)/, 
+                loader: 'file-loader?name=font/[name].[ext]&publicPath=../' 
+            },
             {
                 test: /\.styl$/,
                 loader: 'style-loader!css-loader!stylus-loader'

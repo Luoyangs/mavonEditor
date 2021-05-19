@@ -66,10 +66,10 @@ function $toolbar_right_subfield_click ($vm) {
 function $toolbar_right_navigation_click($vm) {
     $vm.s_navigation = !$vm.s_navigation
     if ($vm.s_navigation) {
-        $vm.s_preview_switch = true;
+        // $vm.s_preview_switch = true;
     }
     if ($vm.navigationtoggle) {
-        $vm.navigationtoggle($vm.s_navigation, $vm.d_value)
+        // $vm.navigationtoggle($vm.s_navigation, $vm.d_value)
     }
     if ($vm.s_navigation) {
         // 绘制标题导航
